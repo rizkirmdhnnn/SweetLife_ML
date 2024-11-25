@@ -13,6 +13,8 @@ import os
 import random
 import joblib
 
+from data import filter_food, generate_combinations
+
 
 app = Flask(__name__)
 CORS = CORS(app, origins="*")
@@ -107,42 +109,84 @@ def exercise_recomendation():
     # Scale the input data
     scaled_data = exercise_scaler.transform(features)
     
-    # Regression Predictions
-    regression_results = exercise_model.predict(scaled_data)
-    
-    # Classification Predictions
-    classification_results = classifier.predict(scaled_data)
-    decoded_class = label_encoder.inverse_transform(classification_results)
+    try: 
+        # Regression Predictions
+        regression_results = exercise_model.predict(scaled_data)
+        
+        # Classification Predictions
+        classification_results = classifier.predict(scaled_data)
+        decoded_class = label_encoder.inverse_transform(classification_results)
 
-    response = {
-        "calories_burned": regression_results[0][0],
-        "exercise_duration": round(regression_results[0][1], 2),
-        "exercise_category": decoded_class[0]
-    }    
+        response = {
+            "calories_burned": regression_results[0][0],
+            "exercise_duration": round(regression_results[0][1], 2),
+            "exercise_category": decoded_class[0]
+        }    
 
-    return jsonify(response)
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-# todo : not completed
 @app.route("/food_recommendation", methods=["POST"])
 def food_recommendation():
     """
     Parameters:
-        - diabet_diagnose : true or false
+        - diabet_diagnoses : true or false
     
     Returns:
         - Food recommendation based on diabetes or not diabetes
     """
 
     data = request.json
-    diagnose = data.get('diabetes')
+    diagnoses = data.get('diabetes')
 
-    if None in [diagnose]:
+    if None in [diagnoses]:
         return jsonify({"error": "fields must be filled"}), 400
 
-    diagnose = 1 if diagnose >= 0.5 else 0
+    try:
+        diagnoses = float(diagnoses)
+        diagnoses = 1 if diagnoses >= 0.5 else 0
+    except ValueError:
+        return jsonify({"error": "diagnoses must be a numeric value"}), 400
 
-    df = pd.read_csv(os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv"))
-    return df.to_json(orient="records")
+
+    diabet_food_df = pd.read_csv(os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv"))
+
+    # get max calories, protein, fat, carbs for diabetes diagnosess
+    max_calories = diabet_food_df['Calories'].max()
+    max_protein = diabet_food_df['Protein'].max()
+    max_fat = diabet_food_df['Fat'].max()
+    max_carbs = diabet_food_df['Carbohydrates'].max()
+
+    food_df = pd.read_csv(os.path.join(DATA_DIR, "nutrition.csv"))
+
+    diabetes_food = filter_food(food_df, max_calories=max_calories, max_carbohydrate=max_carbs, max_fat=max_fat, max_protein=max_protein)
+    normal_food = food_df
+
+    diabetes_combinations = generate_combinations(diabetes_food)
+    normal_combinations = generate_combinations(normal_food)
+
+    try: 
+
+        if diagnoses:
+            food_recommendation = [
+                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
+                for combo in diabetes_combinations
+            ]
+        else:
+            food_recommendation = [
+                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
+                for combo in normal_combinations
+            ]
+
+        response = {
+            "diabetes": bool(diagnoses),
+            "food_recommendation": food_recommendation
+        }
+
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
