@@ -1,4 +1,4 @@
-## SET UP
+## **SET UP**
 
 1. Clone the repository:
 
@@ -31,14 +31,14 @@
    python main.py
    ```
 
-## STRUCTURE
+## **STRUCTURE**
 
 ```bash
-    ROOT/
-    ├── flask-server/
-    │   ├── dataset/          # Directory for .csv datasets
-    │   ├── data.py           # Python script for handling logic
-    │   └── main.py           # Flask server application
-    │
-    └── model/                # Directory for ML models
+ROOT/
+├── flask-server/
+│   ├── dataset/          # Directory for .csv datasets
+│   ├── data.py           # Python script for handling logic
+│   └── main.py           # Flask server application
+│
+└── model/                # Directory for ML models
 ```
