@@ -2,7 +2,7 @@
 .venv/
 
 # Dataset directory
-dataset/
+image_dataset/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/

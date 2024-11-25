@@ -47,7 +47,6 @@ def diabetes_predict():
         - Prediction Percentage
         - Note
     """
-    
 
     data = request.json
     gender = data.get('gender')
@@ -131,7 +130,7 @@ def exercise_recomendation():
 def food_recommendation():
     """
     Parameters:
-        - diabet_diagnoses : true or false
+        - diabet_diagnoses : 0-1
     
     Returns:
         - Food recommendation based on diabetes or not diabetes
