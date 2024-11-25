@@ -33,5 +33,10 @@
 
 ## STRUCTURE
 
-ROOT/ ├── flask-server/ │ ├── dataset/ # Directory for .csv datasets │ ├── data.py # Python script
-for handling logic │ └── main.py # Flask server │ └── model/ # ML models
+ROOT/ 
+├── flask-server/ 
+│   ├── dataset/ # Directory for .csv datasets 
+│   ├── data.py # Python script for handling logic 
+│   └── main.py # Flask server 
+│ 
+└── model/ # ML models
