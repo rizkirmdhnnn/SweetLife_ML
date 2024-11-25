@@ -1,0 +1,39 @@
+# Python virtual environment
+.venv/
+
+# Dataset directory
+dataset/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Local development settings
+.env
+.env.local
+*.local
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_metadata
+*.ipynb_metadata
+Untitled*.ipynb
+
+# Operating System
+.DS_Store
+Thumbs.db
