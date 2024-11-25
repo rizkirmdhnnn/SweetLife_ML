@@ -11,10 +11,7 @@ import json
 
 import os
 import random
-import requests
-import pickle
 import joblib
-
 
 
 app = Flask(__name__)
@@ -34,12 +31,22 @@ diabetes_scaler = joblib.load("../model/diabetes/scaler_diabetes.pkl")
 
 @app.route("/")
 def index():
-    return "Hallo Ges"
+    return "Pranking My Self"
 
 # diabetes prediction
+# todo : fix scaller
 @app.route("/diabetes_predict", methods=["POST"])
 def diabetes_predict():
-    # Ambil data dari request JSON
+    """
+    parameters:
+        - features : [gender, age, heart_desease, smoking_history, bmi]
+    
+    Return: 
+        - Prediction Percentage
+        - Note
+    """
+    
+
     data = request.json
     gender = data.get('gender')
     age = data.get('age')
@@ -48,7 +55,7 @@ def diabetes_predict():
     bmi = data.get('bmi')
 
     if None in [gender, age, heart_desease, smoking_history, bmi]:
-        return jsonify({"error": "Semua field (gender, age, heart_desease, smoking_history, bmi) harus diisi"}), 400
+        return jsonify({"error": "all fields must be filled"}), 400
     
     gender = 1 if gender.lower() == 'male' else 0
     smoking_history_mapping = {'never': 0, 'former': 1, 'current': 2}
@@ -58,18 +65,16 @@ def diabetes_predict():
     features = [gender, age, heart_desease, smoking_history, bmi]
     
     try:
-        # Rescale menggunakan scaler
+        # Rescale the input data
         features_scaled = diabetes_scaler.transform([features])
 
-        # Prediksi menggunakan model
         # prediction_prob = model_diabet.predict(features_scaled)[:, 1][0]
         prediction_prob = diabetes_model.predict(features_scaled) 
         prediction_percentage = round(prediction_prob * 100, 2)
 
-        # Buat response
         response = {
-            "presentse": prediction_percentage,
-            "note": "Pasien kemungkinan rentan diabetes. Mohon konsultasi ke dokter." if prediction_percentage > 50 else "Pasien kemungkinan tidak rentan diabetes."
+            "percentage": prediction_percentage,
+            "note": "The patient may be prone to diabetes. Please consult a doctor." if prediction_percentage > 50 else "Patients may not be prone to diabetes."
         }
 
         return jsonify(response)
@@ -80,14 +85,12 @@ def diabetes_predict():
 @app.route("/exercise_recommendation", methods=["POST"])
 def exercise_recomendation():
     """
-    Function to make predictions using the loaded models.
-    
     Parameters:
-    - new_data: A list of input features [Gender, Age, Height, Diabetes, BMI]
+        - features: [Gender, Age, Height, Diabetes, BMI]
     
     Returns:
-    - Regression predictions (Calories Burned, Exercise Duration)
-    - Classification prediction (Predicted Exercise Category)
+        - Regression predictions (Calories Burned, Exercise Duration)
+        - Classification prediction (Predicted Exercise Category)
     """
     data = request.json
     gender = data.get('gender')
@@ -97,9 +100,8 @@ def exercise_recomendation():
     bmi = data.get('bmi')
 
     if None  in [gender, age, height, diabetes, bmi]:
-        return jsonify({"error": "semua field harus diisi"}), 400
+        return jsonify({"error": "all fields must be filled"}), 400
 
-    # Create a new data point
     features = np.array([[gender, age, height, diabetes, bmi]])
 
     # Scale the input data
@@ -120,24 +122,25 @@ def exercise_recomendation():
 
     return jsonify(response)
 
+# todo : not completed
 @app.route("/food_recommendation", methods=["POST"])
 def food_recommendation():
     """
-    Function to make predictions using result of diabetes.
-    
     Parameters:
-    - diagonose : true or false
+        - diabet_diagnose : true or false
     
     Returns:
-    - Classification prediction (Predicted Exercise Category)
+        - Food recommendation based on diabetes or not diabetes
     """
 
     data = request.json
-    diagonose = data.get('diabetes')
+    diagnose = data.get('diabetes')
 
-    if None  in [diagonose]:
-        return jsonify({"error": "semua field harus diisi"}), 400
-        
+    if None in [diagnose]:
+        return jsonify({"error": "fields must be filled"}), 400
+
+    diagnose = 1 if diagnose >= 0.5 else 0
+
     df = pd.read_csv(os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv"))
     return df.to_json(orient="records")
 
