@@ -103,11 +103,11 @@ def exercise_recomendation():
     if None  in [gender, age, height, diabetes, bmi]:
         return jsonify({"error": "all fields must be filled"}), 400
 
-    features = np.array([[gender, age, height, diabetes, bmi]])
+    features = [[gender, age, height, diabetes, bmi]]
 
     # Scale the input data
     scaled_data = exercise_scaler.transform(features)
-    
+
     try: 
         # Regression Predictions
         regression_results = exercise_model.predict(scaled_data)
