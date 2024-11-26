@@ -23,13 +23,13 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, "dataset")
 
 # Load the saved models and preprocessing tools
-exercise_model = joblib.load("../model/exercise/regressor_model.pkl")
-classifier = joblib.load("../model/exercise/classifier_model.pkl")
-exercise_scaler = joblib.load("../model/exercise/scaler.pkl")
-label_encoder = joblib.load("../model/exercise/label_encoder.pkl")
+exercise_model = joblib.load("./model/exercise/regressor_model.pkl")
+classifier = joblib.load("./model/exercise/classifier_model.pkl")
+exercise_scaler = joblib.load("./model/exercise/scaler.pkl")
+label_encoder = joblib.load("./model/exercise/label_encoder.pkl")
 
-diabetes_model = joblib.load("../model/diabetes/xgb_model_diabetes.pkl")
-diabetes_scaler = joblib.load("../model/diabetes/scaler_diabetes.pkl")
+diabetes_model = joblib.load("./model/diabetes/xgb_model_diabetes.pkl")
+diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
 
 @app.route("/")
 def index():
