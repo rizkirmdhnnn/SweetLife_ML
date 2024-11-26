@@ -59,22 +59,21 @@ def diabetes_predict():
         return jsonify({"error": "all fields must be filled"}), 400
     
     gender = 1 if gender.lower() == 'male' else 0
-    smoking_history_mapping = {'never': 0, 'former': 1, 'current': 2}
+    smoking_history_mapping = {"never": 0, "current": 1, "former": 2, "ever": 3, not "current": 4}
     smoking_history = smoking_history_mapping.get(smoking_history.lower(), 0)
 
     features = np.array([[gender, age, heart_desease, smoking_history, bmi]])
-    features = [gender, age, heart_desease, smoking_history, bmi]
     
     try:
         # Rescale the input data
-        features_scaled = diabetes_scaler.transform([features])
+        features_scaled = diabetes_scaler.transform(features)
 
-        # prediction_prob = model_diabet.predict(features_scaled)[:, 1][0]
-        prediction_prob = diabetes_model.predict(features_scaled) 
-        prediction_percentage = round(prediction_prob * 100, 2)
+        prediction_prob = diabetes_model.predict_proba(features_scaled)[0][1]
+        # prediction_prob = diabetes_model.predict(features_scaled) 
+        prediction_percentage = float(round(prediction_prob * 100, 2))
 
         response = {
-            "percentage": prediction_percentage,
+            "percentage": float(f"{prediction_percentage:.2f}"),
             "note": "The patient may be prone to diabetes. Please consult a doctor." if prediction_percentage > 50 else "Patients may not be prone to diabetes."
         }
 
@@ -99,6 +98,9 @@ def exercise_recomendation():
     height = data.get('height')
     diabetes = data.get('diabetes')
     bmi = data.get('bmi')
+
+    # labelencoder
+    gender = 1 if gender.lower() == 'male' else 0
 
     if None  in [gender, age, height, diabetes, bmi]:
         return jsonify({"error": "all fields must be filled"}), 400
@@ -130,7 +132,7 @@ def exercise_recomendation():
 def food_recommendation():
     """
     Parameters:
-        - diabet_diagnoses : 0-1
+        - diabet_diagnoses : 0-100
     
     Returns:
         - Food recommendation based on diabetes or not diabetes
@@ -144,6 +146,7 @@ def food_recommendation():
 
     try:
         diagnoses = float(diagnoses)
+        diagnoses = diagnoses / 100
         diagnoses = 1 if diagnoses >= 0.5 else 0
     except ValueError:
         return jsonify({"error": "diagnoses must be a numeric value"}), 400
