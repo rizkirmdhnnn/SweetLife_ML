@@ -36,7 +36,6 @@ def index():
     return "Pranking My Self"
 
 # diabetes prediction
-# todo : fix scaller
 @app.route("/diabetes_predict", methods=["POST"])
 def diabetes_predict():
     """
@@ -69,7 +68,6 @@ def diabetes_predict():
         features_scaled = diabetes_scaler.transform(features)
 
         prediction_prob = diabetes_model.predict_proba(features_scaled)[0][1]
-        # prediction_prob = diabetes_model.predict(features_scaled) 
         prediction_percentage = float(round(prediction_prob * 100, 2))
 
         response = {
