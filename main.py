@@ -128,7 +128,8 @@ def exercise_recomendation():
 
         exercises = []
         for category in exercise_categories:
-            exercises.append(category.replace("or", " ").strip().capitalize().replace(".", ""))
+            exercises.append(category.replace("or", " ").replace("and", "").strip().capitalize().replace(".", ""))
+
 
         response = {
             "calories_burned": regression_results[0][0],  
