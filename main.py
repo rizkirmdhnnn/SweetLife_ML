@@ -13,7 +13,7 @@ import os
 import random
 import joblib
 
-from data import filter_food, generate_combinations, fetch_nutritions
+from data import filter_food, generate_combinations
 
 
 app = Flask(__name__)
@@ -33,9 +33,9 @@ diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
 
 @app.route("/")
 def index():
-    return "Pranking My Self"
+    return "mau ngapain hayo"
 
-#diabetes prediction
+# diabetes prediction
 @app.route("/diabetes_predict", methods=["POST"])
 def diabetes_predict():
     """
@@ -50,18 +50,18 @@ def diabetes_predict():
     data = request.json
     gender = data.get('gender')
     age = data.get('age')
-    heart_desease = data.get('heart_desease')
+    heart_disease = data.get('heart_disease')
     smoking_history = data.get('smoking_history')
     bmi = data.get('bmi')
 
-    if None in [gender, age, heart_desease, smoking_history, bmi]:
+    if None in [gender, age, heart_disease, smoking_history, bmi]:
         return jsonify({"error": "all fields must be filled"}), 400
-    
+
     gender = 1 if gender.lower() == 'male' else 0
     smoking_history_mapping = {"never": 0, "current": 1, "former": 2, "ever": 3, not "current": 4}
     smoking_history = smoking_history_mapping.get(smoking_history.lower(), 0)
 
-    features = np.array([[gender, age, heart_desease, smoking_history, bmi]])
+    features = np.array([[gender, age, heart_disease, smoking_history, bmi]])
     
     try:
         # Rescale the input data
@@ -126,58 +126,57 @@ def exercise_recomendation():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-#food recommendation
 @app.route("/food_recommendation", methods=["POST"])
 def food_recommendation():
     """
     Parameters:
-        - diabet_diagnoses : 0-100
-    
+        - diabetes_percentage : 0-100 (percentage)
+
     Returns:
         - Food recommendation based on diabetes or not diabetes
     """
-
     data = request.json
-    diagnoses = data.get('diabetes')
+    diagnoses = data.get("diabetes_percentage")
 
-    if None in [diagnoses]:
-        return jsonify({"error": "fields must be filled"}), 400
+    if diagnoses is None:
+        return jsonify({"error": "The 'diabetes' field must be provided"}), 400
 
     try:
-        diagnoses = float(diagnoses)
-        diagnoses = diagnoses / 100
+        diagnoses = float(diagnoses) / 100
         diagnoses = 1 if diagnoses >= 0.5 else 0
-    except ValueError:
-        return jsonify({"error": "diagnoses must be a numeric value"}), 400
 
-    diabet_food_df = pd.read_csv(os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv"))
+        print(diagnoses)
+    except (ValueError, TypeError):
+        return jsonify({"error": "The 'diabetes' field must be a numeric value"}), 400
 
-    #get max calories, protein, fat, carbs for diabetes diagnosess
-    max_calories = diabet_food_df['Calories'].max()
-    max_protein = diabet_food_df['Protein'].max()
-    max_fat = diabet_food_df['Fat'].max()
-    max_carbs = diabet_food_df['Carbohydrates'].max()
+    try:
+        diabet_food_path = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
+        nutrition_path = os.path.join(DATA_DIR, "nutrition.csv")
 
-    food_df = pd.read_csv(os.path.join(DATA_DIR, "nutrition.csv"))
+        if not os.path.exists(diabet_food_path) or not os.path.exists(nutrition_path):
+            return jsonify({"error": "Required data files not found"}), 500
 
-    diabetes_food = filter_food(food_df, max_calories=max_calories, max_carbohydrate=max_carbs, max_fat=max_fat, max_protein=max_protein)
-    normal_food = food_df
+        diabet_food_df = pd.read_csv(diabet_food_path)
+        food_df = pd.read_csv(nutrition_path)
 
-    diabetes_combinations = generate_combinations(diabetes_food)
-    normal_combinations = generate_combinations(normal_food)
+        max_calories = diabet_food_df['Calories'].max()
+        max_protein = diabet_food_df['Protein'].max()
+        max_fat = diabet_food_df['Fat'].max()
+        max_carbs = diabet_food_df['Carbohydrates'].max()
 
-    try: 
+        diabetes_food = filter_food(
+            food_df, max_calories=max_calories,
+            max_carbohydrate=max_carbs, max_fat=max_fat, max_protein=max_protein
+        )
+        normal_food = food_df
 
-        if diagnoses:
-            food_recommendation = [
-                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
-                for combo in diabetes_combinations
-            ]
-        else:
-            food_recommendation = [
-                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
-                for combo in normal_combinations
-            ]
+        diabetes_combinations = generate_combinations(diabetes_food)
+        normal_combinations = generate_combinations(normal_food)
+
+        food_recommendation = [
+            combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
+            for combo in (diabetes_combinations if diagnoses else normal_combinations)
+        ]
 
         response = {
             "diabetes": bool(diagnoses),
@@ -186,92 +185,9 @@ def food_recommendation():
 
         return jsonify(response)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-# TODO: Implement the food classification endpoints
-#food clasifications
-@app.route("/food_classification", methods=["POST"])
-def food_clasifications():
-    """
-    parameters:
-        - features : [images of food, food_volume]
 
-    Return:
-        - Predicted Food Category :
-            - 0 : Healthy
-            - 1 : Unhealthy
-        - food name
-        - food nutrition values - [Calories, Carbohydrates, Fat, Proteins]
-    """
-    
-    data = request.json
-    image = data.get('image')
-    volume = data.get('volume')
-
-    if None in [image, volume]:
-        return jsonify({"error": "all fields must be filled"}), 400
-
-    try:
-        # Load the model
-        model = joblib.load("../model/food_classification/model.pkl")
-        scaler = joblib.load("../model/food_classification/scaler.pkl")
-
-        # Load the image
-        image = np.array(image).reshape(1, -1)
-
-        # Scale the input data
-        scaled_data = scaler.transform(image)
-
-        # Make predictions
-        prediction = model.predict(scaled_data)
-        food_name = model.classes_[prediction][0]
-
-        response = {
-            "food_category": int(prediction[0]),
-            "food_name": food_name,
-            "food_nutrition": {
-                "calories": 0,
-                "carbohydrates": 0,
-                "fat": 0,
-                "proteins": 0
-            }
-        }
-
-        return jsonify(response)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-#food nutrition    
-@app.route("/food_nutrition", methods=["POST"])
-def food_nutrition():
-    """
-    parameters:
-        - prediction : food name
-    
-    Return:
-        - Proteins
-        - Calories
-        - Carbohydrates
-        - Fat
-    """
-    data = request.json
-    prediction = data.get('prediction')
-
-    if None in prediction:
-        return jsonify({"error": "all fields must be filled"}), 400
-
-    try:
-        proteins, calories, carbohydrates, fat = fetch_nutritions(prediction)
-        response = {
-            "proteins": proteins,
-            "calories": calories,
-            "carbohydrates": carbohydrates,
-            "fat": fat
-        }
-
-        return jsonify(response)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
