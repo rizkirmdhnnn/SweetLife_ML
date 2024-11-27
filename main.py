@@ -33,7 +33,7 @@ diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
 
 @app.route("/")
 def index():
-    return "Pranking My Self"
+    return "mau ngapain hayo"
 
 # diabetes prediction
 @app.route("/diabetes_predict", methods=["POST"])
@@ -50,18 +50,18 @@ def diabetes_predict():
     data = request.json
     gender = data.get('gender')
     age = data.get('age')
-    heart_desease = data.get('heart_desease')
+    heart_disease = data.get('heart_disease')
     smoking_history = data.get('smoking_history')
     bmi = data.get('bmi')
 
-    if None in [gender, age, heart_desease, smoking_history, bmi]:
+    if None in [gender, age, heart_disease, smoking_history, bmi]:
         return jsonify({"error": "all fields must be filled"}), 400
-    
+
     gender = 1 if gender.lower() == 'male' else 0
     smoking_history_mapping = {"never": 0, "current": 1, "former": 2, "ever": 3, not "current": 4}
     smoking_history = smoking_history_mapping.get(smoking_history.lower(), 0)
 
-    features = np.array([[gender, age, heart_desease, smoking_history, bmi]])
+    features = np.array([[gender, age, heart_disease, smoking_history, bmi]])
     
     try:
         # Rescale the input data
