@@ -37,8 +37,9 @@
 ROOT/
 ├── flask-server/
 │   ├── dataset/          # Directory for .csv datasets
+│   ├── model/            # Directory for ML models
 │   ├── data.py           # Python script for handling logic
 │   └── main.py           # Flask server application
 │
-└── model/                # Directory for ML models
+└── *.ipnyb               # preprocessing model
 ```
