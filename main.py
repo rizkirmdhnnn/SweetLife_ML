@@ -130,54 +130,53 @@ def exercise_recomendation():
 def food_recommendation():
     """
     Parameters:
-        - diabet_diagnoses : 0-100
-    
+        - diabetes_percentage : 0-100 (percentage)
+
     Returns:
         - Food recommendation based on diabetes or not diabetes
     """
-
     data = request.json
-    diagnoses = data.get('diabetes')
+    diagnoses = data.get("diabetes_percentage")
 
-    if None in [diagnoses]:
-        return jsonify({"error": "fields must be filled"}), 400
+    if diagnoses is None:
+        return jsonify({"error": "The 'diabetes' field must be provided"}), 400
 
     try:
-        diagnoses = float(diagnoses)
-        diagnoses = diagnoses / 100
+        diagnoses = float(diagnoses) / 100
         diagnoses = 1 if diagnoses >= 0.5 else 0
-    except ValueError:
-        return jsonify({"error": "diagnoses must be a numeric value"}), 400
 
+        print(diagnoses)
+    except (ValueError, TypeError):
+        return jsonify({"error": "The 'diabetes' field must be a numeric value"}), 400
 
-    diabet_food_df = pd.read_csv(os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv"))
+    try:
+        diabet_food_path = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
+        nutrition_path = os.path.join(DATA_DIR, "nutrition.csv")
 
-    # get max calories, protein, fat, carbs for diabetes diagnosess
-    max_calories = diabet_food_df['Calories'].max()
-    max_protein = diabet_food_df['Protein'].max()
-    max_fat = diabet_food_df['Fat'].max()
-    max_carbs = diabet_food_df['Carbohydrates'].max()
+        if not os.path.exists(diabet_food_path) or not os.path.exists(nutrition_path):
+            return jsonify({"error": "Required data files not found"}), 500
 
-    food_df = pd.read_csv(os.path.join(DATA_DIR, "nutrition.csv"))
+        diabet_food_df = pd.read_csv(diabet_food_path)
+        food_df = pd.read_csv(nutrition_path)
 
-    diabetes_food = filter_food(food_df, max_calories=max_calories, max_carbohydrate=max_carbs, max_fat=max_fat, max_protein=max_protein)
-    normal_food = food_df
+        max_calories = diabet_food_df['Calories'].max()
+        max_protein = diabet_food_df['Protein'].max()
+        max_fat = diabet_food_df['Fat'].max()
+        max_carbs = diabet_food_df['Carbohydrates'].max()
 
-    diabetes_combinations = generate_combinations(diabetes_food)
-    normal_combinations = generate_combinations(normal_food)
+        diabetes_food = filter_food(
+            food_df, max_calories=max_calories,
+            max_carbohydrate=max_carbs, max_fat=max_fat, max_protein=max_protein
+        )
+        normal_food = food_df
 
-    try: 
+        diabetes_combinations = generate_combinations(diabetes_food)
+        normal_combinations = generate_combinations(normal_food)
 
-        if diagnoses:
-            food_recommendation = [
-                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
-                for combo in diabetes_combinations
-            ]
-        else:
-            food_recommendation = [
-                combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
-                for combo in normal_combinations
-            ]
+        food_recommendation = [
+            combo[["name", "calories", "carbohydrate", "fat", "proteins", "image"]].to_dict(orient="records")
+            for combo in (diabetes_combinations if diagnoses else normal_combinations)
+        ]
 
         response = {
             "diabetes": bool(diagnoses),
@@ -186,7 +185,8 @@ def food_recommendation():
 
         return jsonify(response)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+
 
 
 if __name__ == "__main__":
