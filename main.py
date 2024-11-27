@@ -13,7 +13,7 @@ import os
 import random
 import joblib
 
-from data import filter_food, generate_combinations
+from data import filter_food, generate_combinations, fetch_nutritions
 
 
 app = Flask(__name__)
@@ -30,6 +30,15 @@ label_encoder = joblib.load("./model/exercise/label_encoder.pkl")
 
 diabetes_model = joblib.load("./model/diabetes/xgb_model_diabetes.pkl")
 diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
+
+diabet_food_path = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
+nutrition_path = os.path.join(DATA_DIR, "nutrition.csv")
+
+diabet_food_df = pd.read_csv(diabet_food_path)
+max_calories = diabet_food_df['Calories'].max()
+max_protein = diabet_food_df['Protein'].max()
+max_fat = diabet_food_df['Fat'].max()
+max_carbs = diabet_food_df['Carbohydrates'].max()
 
 @app.route("/")
 def index():
@@ -115,12 +124,17 @@ def exercise_recomendation():
         # Classification Predictions
         classification_results = classifier.predict(scaled_data)
         decoded_class = label_encoder.inverse_transform(classification_results)
+        exercise_categories = list(decoded_class[0].split(","))
+
+        exercises = []
+        for category in exercise_categories:
+            exercises.append(category.replace("or", " ").strip().capitalize().replace(".", ""))
 
         response = {
-            "calories_burned": regression_results[0][0],
-            "exercise_duration": round(regression_results[0][1], 2),
-            "exercise_category": decoded_class[0]
-        }    
+            "calories_burned": regression_results[0][0],  
+            "exercise_categories": exercises,
+            "exercise_duration": round(regression_results[0][1], 2)
+        }
 
         return jsonify(response)
     except Exception as e:
@@ -150,19 +164,10 @@ def food_recommendation():
         return jsonify({"error": "The 'diabetes' field must be a numeric value"}), 400
 
     try:
-        diabet_food_path = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
-        nutrition_path = os.path.join(DATA_DIR, "nutrition.csv")
-
         if not os.path.exists(diabet_food_path) or not os.path.exists(nutrition_path):
             return jsonify({"error": "Required data files not found"}), 500
 
-        diabet_food_df = pd.read_csv(diabet_food_path)
         food_df = pd.read_csv(nutrition_path)
-
-        max_calories = diabet_food_df['Calories'].max()
-        max_protein = diabet_food_df['Protein'].max()
-        max_fat = diabet_food_df['Fat'].max()
-        max_carbs = diabet_food_df['Carbohydrates'].max()
 
         diabetes_food = filter_food(
             food_df, max_calories=max_calories,
@@ -187,7 +192,74 @@ def food_recommendation():
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
+#food clasifications
+@app.route("/food_classification", methods=["POST"])
+def food_clasification():
+    """
+    Parameters:
+        - features : [images of food, name food, volume]
 
+    Returns:
+        - food name
+        - [Calories, Carbohydrates, Fat, Proteins]
+        - alert (note recommendation for diabetes or not diabetes)
+    """
+    
+    data = request.json
+    image = data.get('image')
+    food_name = data.get('name')
+    volume = data.get('volume')
+
+    if not image and not food_name:
+        return jsonify({"error": "Either 'image' or 'name' must be provided."}), 400
+
+    if image:
+        return jsonify({"error": "Image classification is not yet implemented."}), 501
+
+    if not food_name:
+        return jsonify({"error": "Food name could not be determined."}), 400
+
+    try:
+        proteins, calories, carbohydrates, fat = fetch_nutritions(food_name)
+
+        # Convert values to floats to avoid type mismatch
+        proteins = float(proteins.replace("g", "").strip().replace(",","."))
+        calories = float(calories.replace("kcal", "").strip().replace(",","."))
+        carbohydrates = float(carbohydrates.replace("g", "").strip().replace(",","."))
+        fat = float(fat.replace("g", "").strip().replace(",","."))
+
+        # Ensure volume is a valid number
+        volume = float(volume / 100) if volume else 1.0
+
+        proteins = proteins * volume
+        calories = calories * volume
+        carbohydrates = carbohydrates * volume
+        fat = fat * volume
+
+        nutrition_info = {
+            "proteins": "{:.2f} g".format(proteins),
+            "calories": "{:.2f} kcal".format(calories),
+            "carbohydrates": "{:.2f} g".format(carbohydrates),
+            "fat": "{:.2f} g".format(fat)
+        }
+
+        alert = (
+            "Suitable for diabetes" 
+            if (carbohydrates < max_carbs and 
+                calories < max_calories and 
+                proteins < max_protein and 
+                fat < max_fat)
+            else "Not recommended for diabetes"
+        )
+        
+        return jsonify({
+            "food_name": food_name,
+            "nutrition_info": nutrition_info,
+            "alert": alert
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
