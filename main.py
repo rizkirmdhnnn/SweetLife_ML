@@ -3,17 +3,17 @@ from flask_cors import CORS
 
 import xgboost as xgb
 import sklearn
+import tensorflow as tf
+from ultralytics import YOLO
 from sklearn.preprocessing import StandardScaler
 
 import pandas as pd
 import numpy as np
-import json
 
 import os
-import random
 import joblib
 
-from data import filter_food, generate_combinations, fetch_nutritions
+from data import filter_food, generate_combinations, fetch_nutritions, convert_weight_to_grams, safe_convert, load_yolo_model
 
 
 app = Flask(__name__)
@@ -21,6 +21,9 @@ CORS = CORS(app, origins="*")
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, "dataset")
+DIABET_FOOD_PATH = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
+NUTRITION_PATH = os.path.join(DATA_DIR, "nutrition.csv")
+MODEL_DIR = os.path.join(ROOT_DIR, "model")
 
 # Load the saved models and preprocessing tools
 exercise_model = joblib.load("./model/exercise/regressor_model.pkl")
@@ -31,10 +34,8 @@ label_encoder = joblib.load("./model/exercise/label_encoder.pkl")
 diabetes_model = joblib.load("./model/diabetes/xgb_model_diabetes.pkl")
 diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
 
-diabet_food_path = os.path.join(DATA_DIR, "diabet_food_recomendation_clean.csv")
-nutrition_path = os.path.join(DATA_DIR, "nutrition.csv")
-
-diabet_food_df = pd.read_csv(diabet_food_path)
+# Get max valuue for diabetes food recommendation
+diabet_food_df = pd.read_csv(DIABET_FOOD_PATH)
 max_calories = diabet_food_df['Calories'].max()
 max_protein = diabet_food_df['Protein'].max()
 max_fat = diabet_food_df['Fat'].max()
@@ -44,7 +45,7 @@ max_carbs = diabet_food_df['Carbohydrates'].max()
 def index():
     return "mau ngapain hayo"
 
-# diabetes prediction
+# Diabetes prediction
 @app.route("/diabetes_predict", methods=["POST"])
 def diabetes_predict():
     """
@@ -88,7 +89,7 @@ def diabetes_predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-#exercise recommendation
+# Exercise recommendation
 @app.route("/exercise_recommendation", methods=["POST"])
 def exercise_recomendation():
     """
@@ -128,7 +129,7 @@ def exercise_recomendation():
 
         exercises = []
         for category in exercise_categories:
-            exercises.append(category.replace("or", " ").replace("and", "").strip().capitalize().replace(".", ""))
+            exercises.append(category.replace("or", " ").replace("and", " ").strip().capitalize().replace(".", ""))
 
 
         response = {
@@ -141,6 +142,7 @@ def exercise_recomendation():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Food recommendation
 @app.route("/food_recommendation", methods=["POST"])
 def food_recommendation():
     """
@@ -165,10 +167,10 @@ def food_recommendation():
         return jsonify({"error": "The 'diabetes' field must be a numeric value"}), 400
 
     try:
-        if not os.path.exists(diabet_food_path) or not os.path.exists(nutrition_path):
+        if not os.path.exists(DIABET_FOOD_PATH) or not os.path.exists(NUTRITION_PATH):
             return jsonify({"error": "Required data files not found"}), 500
 
-        food_df = pd.read_csv(nutrition_path)
+        food_df = pd.read_csv(NUTRITION_PATH)
 
         diabetes_food = filter_food(
             food_df, max_calories=max_calories,
@@ -193,60 +195,84 @@ def food_recommendation():
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
+# Food clasifications
+@app.route("/scan-food", methods=["POST"])
+def food_detection():
+    """
+    Parameters:
+        - image : image url
 
+    Returns:
+        - Detected objects
+    """
+    data = request.json
+    image = data.get('image')
 
-#food clasifications
-@app.route("/food_classification", methods=["POST"])
+    if image is None:
+        return jsonify({"error": "The 'image' field must be provided"}), 400
+
+    try:
+        outputs = load_yolo_model("./model/food_classification/model.pt", image)
+
+        response = {
+            "objects": outputs
+        }
+
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/food_nutritions", methods=["POST"])
 def food_clasification():
     """
     Parameters:
-        - features : [images of food, name food, volume]
+        - features : [food_name, volume (optional)]
 
     Returns:
         - food name
         - [Calories, Carbohydrates, Fat, Proteins]
         - alert (note recommendation for diabetes or not diabetes)
+        - volume (gram)
     """
     
     data = request.json
-    image = data.get('image')
     food_name = data.get('name')
     volume = data.get('volume')
 
-    if not image and not food_name:
-        return jsonify({"error": "Either 'image' or 'name' must be provided."}), 400
-
-    if image:
-        return jsonify({"error": "Image classification is not yet implemented."}), 501
-
     if not food_name:
-        return jsonify({"error": "Food name could not be determined."}), 400
+        return jsonify({"error": "'food_name' must be provided."}), 400
+    
+    if volume is not None:
+        volume_convert = convert_weight_to_grams(volume)
 
     try:
-        proteins, calories, carbohydrates, fat = fetch_nutritions(food_name)
+        proteins, calories, carbohydrates, fat, sugar = fetch_nutritions(food_name)
 
         # Convert values to floats to avoid type mismatch
-        proteins = float(proteins.replace("g", "").strip().replace(",","."))
-        calories = float(calories.replace("kcal", "").strip().replace(",","."))
-        carbohydrates = float(carbohydrates.replace("g", "").strip().replace(",","."))
-        fat = float(fat.replace("g", "").strip().replace(",","."))
-
+        proteins = safe_convert(proteins, "g")
+        calories = safe_convert(calories, "kcal")
+        carbohydrates = safe_convert(carbohydrates, "g")
+        fat = safe_convert(fat, "g")
+        sugar = safe_convert(sugar, "g")
+        
         # Ensure volume is a valid number
-        volume = float(volume / 100) if volume else 1.0
+        volume_convert = float(volume_convert / 100) if volume is not None else 1
 
-        proteins = proteins * volume
-        calories = calories * volume
-        carbohydrates = carbohydrates * volume
-        fat = fat * volume
+        proteins *= volume_convert
+        calories *= volume_convert
+        carbohydrates *= volume_convert
+        fat *= volume_convert
+        sugar *= volume_convert
 
         nutrition_info = {
             "proteins": "{:.2f} g".format(proteins),
             "calories": "{:.2f} kcal".format(calories),
             "carbohydrates": "{:.2f} g".format(carbohydrates),
-            "fat": "{:.2f} g".format(fat)
+            "fat": "{:.2f} g".format(fat),
+            "sugar": "{:.2f} g".format(sugar)
         }
 
-        if carbohydrates == 0 and calories == 0 and proteins == 0 and fat == 0:
+        if carbohydrates == 0 and calories == 0 and proteins == 0 and fat == 0 and sugar == 0:
             alert = "Food not found"
         elif (carbohydrates < max_carbs and 
             calories < max_calories and 
@@ -259,7 +285,8 @@ def food_clasification():
         return jsonify({
             "food_name": food_name,
             "nutrition_info": nutrition_info,
-            "alert": alert
+            "alert": alert,
+            "volume": "100 g" if volume is None else f"{volume}"
         })
     
     except Exception as e:

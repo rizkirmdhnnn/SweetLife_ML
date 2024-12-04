@@ -9,3 +9,6 @@ scipy
 threadpoolctl
 beautifulsoup4
 requests
+pillow
+tensorflow
+ultralytics

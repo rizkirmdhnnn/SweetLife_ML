@@ -1,7 +1,50 @@
 import requests
 import numpy as np
 from bs4 import BeautifulSoup
-# from keras.preprocessing.image import load_img, img_to_array
+from ultralytics import YOLO
+
+from PIL import Image
+from io import BytesIO
+
+# conver to gram
+def convert_weight_to_grams(weight):
+    """
+    Parameters:
+        - weight (str): The weight string, e.g., "500mg", "1.2kg", "3t".
+        
+    Returns:
+        - float: The converted weight in grams.
+    """
+    try:
+        # Normalize input (lowercase and strip spaces)
+        weight = weight.lower().strip()
+
+        if "µg" in weight or "ug" in weight:
+            value = float(weight.replace("µg", "").replace("ug", "").strip())
+            return value / 1_000_000
+
+        elif "mg" in weight:
+            value = float(weight.replace("mg", "").strip())
+            return value / 1000
+        
+        elif "kg" in weight:
+            value = float(weight.replace("kg", "").strip())
+            return value * 1000
+
+        elif "g" in weight:
+            value = float(weight.replace("g", "").strip())
+            return value
+
+        elif "t" in weight:
+            value = float(weight.replace("t", "").strip())
+            return value * 1_000_000
+
+        else:
+            raise ValueError("Unit not recognized. Please use mg, g, kg, or t.")
+
+    except Exception as e:
+        raise ValueError(f"Invalid weight format: {e}")
+
 
 # filter the food for diabetic patient
 def filter_food(df, max_calories=None, max_carbohydrate=None, max_fat=None, max_protein=None):
@@ -32,6 +75,36 @@ def generate_combinations(food_df, num_combinations=2, items_per_combination=5):
         combinations.append(random_selection)
     return combinations
 
+
+# load_model
+def load_yolo_model(model_path, image_url):
+    """Load the saved YOLO model and make predictions on a local image."""
+    
+    response = requests.get(image_url)
+    if response.status_code != 200:
+        raise ValueError("Failed to download the image from the URL.")
+    
+    image = Image.open(BytesIO(response.content))
+    model = YOLO(model_path)
+
+    # Perform prediction on the input image
+    results = model.predict(source=image, save=False, conf=0.25)
+
+    # Format the results
+    formatted_results = []
+    for result in results:
+        detections = {}
+        for box in result.boxes:
+            cls = int(box.cls.cpu().numpy())  # Class index
+            name = model.names[cls]  # Class name
+            if name in detections:
+                detections[name] += 1
+            else:
+                detections[name] = 1
+        formatted_results.append([{"name": k, "unit": v} for k, v in detections.items()])
+
+    return formatted_results
+
 # fetch the nutritions of the food
 def fetch_nutritions(prediction):
     """
@@ -42,27 +115,37 @@ def fetch_nutritions(prediction):
         calories_url = 'https://www.google.com/search?&q=calories in ' + prediction
         carb_url = 'https://www.google.com/search?&q=carbohydrate in' + prediction
         fat_url = 'https://www.google.com/search?&q=fat in ' + prediction
+        sugar_url = 'https://www.google.com/search?q=sugar in ' + prediction
         
         proteins_req = requests.get(proteins_url).text
         calories_req = requests.get(calories_url).text
         carb_req = requests.get(carb_url).text
         fat_req = requests.get(fat_url).text
+        sugar_req = requests.get(sugar_url).text
 
         proteins_scrap = BeautifulSoup(proteins_req, 'html.parser')
         calories_scrap = BeautifulSoup(calories_req, 'html.parser')
         carb_scrap = BeautifulSoup(carb_req, 'html.parser')
         fat_scrap = BeautifulSoup(fat_req, 'html.parser')
+        sugar_scrap = BeautifulSoup(sugar_req, 'html.parser')
 
-        results = {}
+        # Extracting data or assigning default value (0)
+        def extract_value(scrap, class_name="BNeawe iBp4i AP7Wnd"):
+            element = scrap.find("div", class_=class_name)
+            return element.text if element else "0 g"  # Default value
 
-        for scrap, key in zip([proteins_scrap, calories_scrap, carb_scrap, fat_scrap], ["proteins", "calories", "carbohydrates", "fat"]):   
-            results[key] = scrap.find("div", class_="BNeawe iBp4i AP7Wnd").text
-            
-        return (
-            results["proteins"],
-            results["calories"],
-            results["carbohydrates"],
-            results["fat"]
-        )
+        proteins = extract_value(proteins_scrap)
+        calories = extract_value(calories_scrap)
+        carbohydrates = extract_value(carb_scrap)
+        fat = extract_value(fat_scrap)
+        sugar = extract_value(sugar_scrap)
+
+        return proteins, calories, carbohydrates, fat, sugar
     except Exception as e:
         return f"error: {e}"
+
+def safe_convert(value, unit):
+    try:
+        return float(value.replace(unit, "").strip().replace(",", "."))
+    except (ValueError, AttributeError):
+        return 0.0  
