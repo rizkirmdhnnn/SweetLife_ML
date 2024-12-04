@@ -80,30 +80,34 @@ def generate_combinations(food_df, num_combinations=2, items_per_combination=5):
 def load_yolo_model(model_path, image_url):
     """Load the saved YOLO model and make predictions on a local image."""
     
+    # Download the image from the URL
     response = requests.get(image_url)
     if response.status_code != 200:
         raise ValueError("Failed to download the image from the URL.")
     
+    # Open the image
     image = Image.open(BytesIO(response.content))
+    
+    # Load the YOLO model
     model = YOLO(model_path)
 
     # Perform prediction on the input image
     results = model.predict(source=image, save=False, conf=0.25)
 
     # Format the results
-    formatted_results = []
+    detections = {}
     for result in results:
-        detections = {}
         for box in result.boxes:
             cls = int(box.cls.cpu().numpy())  # Class index
             name = model.names[cls]  # Class name
-            if name in detections:
-                detections[name] += 1
-            else:
-                detections[name] = 1
-        formatted_results.append([{"name": k, "unit": v} for k, v in detections.items()])
+            # Count the detected objects by name
+            detections[name] = detections.get(name, 0) + 1
+
+    # Convert the detections dictionary into the desired format
+    formatted_results = [{"name": name, "unit": count} for name, count in detections.items()]
 
     return formatted_results
+
 
 # fetch the nutritions of the food
 def fetch_nutritions(prediction):
