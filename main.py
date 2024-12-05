@@ -224,43 +224,47 @@ def food_detection():
     
 @app.route("/food_nutritions", methods=["POST"])
 def food_clasification():
+    """
+    Parameters:
+        - features : [food_name, volume (optional)]
+
+    Returns:
+        - food name
+        - [Calories, Carbohydrates, Fat, Proteins, Sugar]
+        - alert (note recommendation for diabetes or not diabetes)
+        - weight (in grams)
+    """
+    
     data = request.json
     food_name = data.get('name')
     volume = data.get('weight')
 
     if not food_name:
         return jsonify({"error": "'food_name' must be provided."}), 400
-
-    # Konversi volume
-    # if volume is not None:
-    #     try:
-    #         volume = float(volume) / 100
-    #     except ValueError:
-    #         return jsonify({"error": "'weight' must be a valid number."}), 400
-    # else:
-    #     volume = 1  # Default ke 100 g
+    
+    if volume is not None:
+        volume_convert = convert_weight_to_grams(volume)
 
     try:
         proteins, calories, carbohydrates, fat, sugar = fetch_nutritions(food_name)
 
-        # Konversi nilai ke float
-        try:
-            proteins = float(proteins)
-            calories = float(calories)
-            carbohydrates = float(carbohydrates)
-            fat = float(fat)
-            sugar = float(sugar)
-        except ValueError:
-            return jsonify({"error": "Invalid nutrition data received."}), 500
+        # Convert values to floats to avoid type mismatch
+        proteins = safe_convert(proteins, "g")
+        calories = safe_convert(calories, "kcal")
+        carbohydrates = safe_convert(carbohydrates, "g")
+        fat = safe_convert(fat, "g")
+        sugar = safe_convert(sugar, "g")
+        
+        # Ensure volume is a valid number
+        volume_convert = float(volume_convert / 100) if volume is not None else 1
 
-        # Hitung berdasarkan volume
-        proteins *= volume
-        calories *= volume
-        carbohydrates *= volume
-        fat *= volume
-        sugar *= volume
+        # Scale nutrition values by volume if provided
+        proteins *= volume_convert
+        calories *= volume_convert
+        carbohydrates *= volume_convert
+        fat *= volume_convert
+        sugar *= volume_convert
 
-        # Format hasil
         nutrition_info = {
             "proteins": "{:.2f}".format(proteins),
             "calories": "{:.2f}".format(calories),
@@ -269,7 +273,7 @@ def food_clasification():
             "sugar": "{:.2f}".format(sugar)
         }
 
-        # Cek rekomendasi
+        # Determine alert based on nutritional thresholds
         if carbohydrates == 0 and calories == 0 and proteins == 0 and fat == 0 and sugar == 0:
             alert = "Food not found"
         elif (carbohydrates < max_carbs and 
@@ -284,9 +288,9 @@ def food_clasification():
             "food_name": food_name,
             "nutrition_info": nutrition_info,
             "alert": alert,
-            "volume": "100 g" if volume == 1 else f"{volume * 100:.0f} g"
+            "weight": int(volume_convert * 100) if volume is not None else 100
         })
-
+    
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
