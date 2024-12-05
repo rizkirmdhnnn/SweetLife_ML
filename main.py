@@ -232,12 +232,12 @@ def food_clasification():
         - food name
         - [Calories, Carbohydrates, Fat, Proteins]
         - alert (note recommendation for diabetes or not diabetes)
-        - volume (gram)
+        - weight (gram)
     """
     
     data = request.json
     food_name = data.get('name')
-    volume = data.get('volume')
+    volume = data.get('weight')
 
     if not food_name:
         return jsonify({"error": "'food_name' must be provided."}), 400
