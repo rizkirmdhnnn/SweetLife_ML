@@ -242,34 +242,34 @@ def food_clasification():
     if not food_name:
         return jsonify({"error": "'food_name' must be provided."}), 400
     
-    if volume is not None:
-        volume_convert = convert_weight_to_grams(volume)
+    # if volume is not None:
+    #     volume_convert = convert_weight_to_grams(volume)
 
     try:
         proteins, calories, carbohydrates, fat, sugar = fetch_nutritions(food_name)
 
-        # Convert values to floats to avoid type mismatch
-        proteins = safe_convert(proteins, "g")
-        calories = safe_convert(calories, "kcal")
-        carbohydrates = safe_convert(carbohydrates, "g")
-        fat = safe_convert(fat, "g")
-        sugar = safe_convert(sugar, "g")
+        # # Convert values to floats to avoid type mismatch
+        # proteins = safe_convert(proteins, "g")
+        # calories = safe_convert(calories, "kcal")
+        # carbohydrates = safe_convert(carbohydrates, "g")
+        # fat = safe_convert(fat, "g")
+        # sugar = safe_convert(sugar, "g")
         
         # Ensure volume is a valid number
-        volume_convert = float(volume_convert / 100) if volume is not None else 1
+        # volume_convert = float(volume_convert / 100) if volume is not None else 1
 
-        proteins *= volume_convert
-        calories *= volume_convert
-        carbohydrates *= volume_convert
-        fat *= volume_convert
-        sugar *= volume_convert
+        proteins *= volume
+        calories *= volume
+        carbohydrates *= volume
+        fat *= volume
+        sugar *= volume
 
         nutrition_info = {
-            "proteins": "{:.2f} g".format(proteins),
-            "calories": "{:.2f} kcal".format(calories),
-            "carbohydrates": "{:.2f} g".format(carbohydrates),
-            "fat": "{:.2f} g".format(fat),
-            "sugar": "{:.2f} g".format(sugar)
+            "proteins": "{:.2f}".format(proteins),
+            "calories": "{:.2f}".format(calories),
+            "carbohydrates": "{:.2f}".format(carbohydrates),
+            "fat": "{:.2f}".format(fat),
+            "sugar": "{:.2f}".format(sugar)
         }
 
         if carbohydrates == 0 and calories == 0 and proteins == 0 and fat == 0 and sugar == 0:
