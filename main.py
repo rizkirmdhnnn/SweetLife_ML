@@ -265,11 +265,11 @@ def food_clasification():
         sugar *= volume
 
         nutrition_info = {
-            "proteins": "{:.2f}".format(proteins),
-            "calories": "{:.2f}".format(calories),
-            "carbohydrates": "{:.2f}".format(carbohydrates),
-            "fat": "{:.2f}".format(fat),
-            "sugar": "{:.2f}".format(sugar)
+            "proteins": proteins
+            "calories": calories,
+            "carbohydrates": carbohydrates,
+            "fat": fat,
+            "sugar": sugar 
         }
 
         if carbohydrates == 0 and calories == 0 and proteins == 0 and fat == 0 and sugar == 0:
