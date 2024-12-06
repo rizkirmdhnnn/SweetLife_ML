@@ -265,7 +265,7 @@ def food_clasification():
         sugar *= volume
 
         nutrition_info = {
-            "proteins": proteins
+            "proteins": proteins,
             "calories": calories,
             "carbohydrates": carbohydrates,
             "fat": fat,
