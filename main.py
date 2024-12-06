@@ -241,9 +241,6 @@ def food_clasification():
 
     if not food_name:
         return jsonify({"error": "'food_name' must be provided."}), 400
-    
-    if volume is not None:
-        volume_convert = convert_weight_to_grams(volume)
 
     try:
         proteins, calories, carbohydrates, fat, sugar = fetch_nutritions(food_name)
@@ -256,7 +253,7 @@ def food_clasification():
         sugar = safe_convert(sugar, "g")
         
         # Ensure volume is a valid number
-        volume_convert = float(volume_convert / 100) if volume is not None else 1
+        volume_convert = float(volume / 100) if volume is not None else 1
 
         # Scale nutrition values by volume if provided
         proteins *= volume_convert
