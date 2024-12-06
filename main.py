@@ -263,11 +263,11 @@ def food_clasification():
         sugar *= volume_convert
 
         nutrition_info = {
-            "proteins": "{:.2f}".format(proteins),
-            "calories": "{:.2f}".format(calories),
-            "carbohydrates": "{:.2f}".format(carbohydrates),
-            "fat": "{:.2f}".format(fat),
-            "sugar": "{:.2f}".format(sugar)
+            "proteins": round(proteins, 2),
+            "calories": round(calories, 2),
+            "carbohydrates": round(carbohydrates, 2),
+            "fat": round(fat, 2),
+            "sugar": round(sugar, 2)
         }
 
         # Determine alert based on nutritional thresholds
