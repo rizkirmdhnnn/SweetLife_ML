@@ -31,7 +31,7 @@ classifier = joblib.load("./model/exercise/classifier_model.pkl")
 exercise_scaler = joblib.load("./model/exercise/scaler.pkl")
 label_encoder = joblib.load("./model/exercise/label_encoder.pkl")
 
-diabetes_model = joblib.load("./model/diabetes/xgb_model_diabetes.pkl")
+diabetes_model = joblib.load("./model/diabetes/diabetes_model.pkl")
 diabetes_scaler = joblib.load("./model/diabetes/scaler_diabetes.pkl")
 
 # Get max valuue for diabetes food recommendation
@@ -77,12 +77,12 @@ def diabetes_predict():
         # Rescale the input data
         features_scaled = diabetes_scaler.transform(features)
 
-        prediction_prob = diabetes_model.predict_proba(features_scaled)[0][1]
+        prediction_prob = diabetes_model.predict(features_scaled)[0][0]
         prediction_percentage = float(round(prediction_prob * 100, 2))
 
         response = {
             "percentage": float(f"{prediction_percentage:.2f}"),
-            "note": "The patient may be prone to diabetes. Please consult a doctor." if prediction_percentage > 50 else "Patients may not be prone to diabetes."
+            "note": "The patient may be prone to diabetes. Please consult a doctor." if prediction_percentage > 18 else "Patients may not be prone to diabetes."
         }
 
         return jsonify(response)
